@@ -1,0 +1,5 @@
+{
+  "name": "Proton FPS Engine",
+  "description": "Uma engine de FPS modular e de alta performance construída com Three.js e Cannon-es, apresentando assets procedurais, física avançada e mecânicas de armas estilo AAA.",
+  "requestFramePermissions": []
+}

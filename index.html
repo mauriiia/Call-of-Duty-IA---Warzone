@@ -1,0 +1,165 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Proton FPS Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Roboto+Condensed:ital,wght@0,400;0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <style>
+      body { margin: 0; overflow: hidden; background: #111; user-select: none; }
+      canvas { display: block; }
+      .font-tactical { font-family: 'Roboto Condensed', sans-serif; }
+      .font-console { font-family: 'Rajdhani', sans-serif; }
+      
+      /* FPS COUNTER */
+      #fps-counter {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: #00ff00;
+        font-family: 'Roboto Condensed', sans-serif;
+        font-weight: bold;
+        font-size: 14px;
+        z-index: 2000;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+
+      /* DAMAGE OVERLAY (Blood Vignette) */
+      #damage-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 998;
+        opacity: 0;
+        background: radial-gradient(circle, transparent 60%, rgba(140, 0, 0, 0.9) 100%);
+        box-shadow: inset 0 0 150px rgba(255, 0, 0, 0.5);
+        transition: opacity 0.1s linear;
+        mix-blend-mode: multiply;
+      }
+
+      /* DAMAGE INDICATORS CONTAINER */
+      #damage-indicator-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 999;
+        overflow: hidden;
+      }
+
+      /* INDIVIDUAL ARROW */
+      .damage-arrow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 200px;
+        height: 200px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        border-top: 5px solid rgba(255, 0, 0, 0.9); /* Sharp Red Arc */
+        box-shadow: 0 -5px 20px rgba(255, 0, 0, 0.4);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease-out;
+      }
+
+      /* HIT MARKER */
+      #hit-marker-container {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 32px;
+        height: 32px;
+        pointer-events: none;
+        z-index: 1000;
+        opacity: 0;
+      }
+      
+      .hit-line {
+        position: absolute;
+        background-color: white;
+        box-shadow: 0 0 2px rgba(0,0,0,0.8);
+        border-radius: 1px;
+      }
+
+      /* WORLD LABELS (CSS3D/2D) */
+      .world-label {
+        font-family: 'Roboto Condensed', sans-serif;
+        font-weight: 900;
+        color: #4ade80; /* Tailwind green-400 */
+        font-size: 24px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        pointer-events: none;
+        user-select: none;
+        transition: opacity 0.5s ease;
+        text-align: center;
+      }
+      .world-label span {
+        display: block;
+        font-size: 12px;
+        color: rgba(255,255,255,0.7);
+        letter-spacing: 0em;
+      }
+
+      /* SPARKS / EMBERS ANIMATION */
+      @keyframes floatUp {
+        0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+        10% { opacity: 1; }
+        100% { transform: translateY(-100vh) translateX(var(--drift)) scale(0.2); opacity: 0; }
+      }
+      
+      .spark {
+        position: absolute;
+        bottom: -20px;
+        background: #ffaa00;
+        border-radius: 50%;
+        pointer-events: none;
+        box-shadow: 0 0 6px 2px rgba(255, 100, 0, 0.6);
+        animation: floatUp linear infinite;
+        mix-blend-mode: screen;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "three": "https://esm.sh/three@^0.182.0",
+    "three/addons/": "https://esm.sh/three@^0.182.0/examples/jsm/",
+    "cannon-es": "https://esm.sh/cannon-es@^0.20.0",
+    "three/": "https://esm.sh/three@^0.182.0/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="fps-counter">FPS: 60</div>
+    <div id="damage-overlay"></div>
+    <div id="damage-indicator-container"></div>
+    <!-- Hit Marker Structure -->
+    <div id="hit-marker-container">
+        <!-- 45deg cross -->
+        <div class="hit-line" style="top: 15px; left: 4px; width: 8px; height: 2px; transform: rotate(45deg);"></div>
+        <div class="hit-line" style="top: 15px; right: 4px; width: 8px; height: 2px; transform: rotate(-45deg);"></div>
+        <div class="hit-line" style="top: 4px; left: 15px; width: 2px; height: 8px; transform: rotate(45deg);"></div>
+        <div class="hit-line" style="bottom: 4px; left: 15px; width: 2px; height: 8px; transform: rotate(45deg);"></div>
+    </div>
+    <div id="root"></div>
+  </body>
+</html>
